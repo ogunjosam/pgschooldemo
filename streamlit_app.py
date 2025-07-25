@@ -152,49 +152,104 @@ def process_author_ids(results_df, futa_authors):
 
 def create_visualizations(recommendations_df):
     """Create visualizations for the recommendations"""
+    
+    # Check if we have data
+    if len(recommendations_df) == 0:
+        return None, None, None
+    
+    # Find the correct column names
+    name_candidates = ['Name', 'Author', 'Full Name', 'Author Name', 'Authors', 'Author full names']
+    name_col = None
+    for candidate in name_candidates:
+        if candidate in recommendations_df.columns:
+            name_col = candidate
+            break
+    
+    # If no standard name column found, use the first string column
+    if name_col is None:
+        string_cols = recommendations_df.select_dtypes(include=['object']).columns
+        if len(string_cols) > 0:
+            name_col = string_cols[0]
+    
+    # If still no name column, create a generic one
+    if name_col is None:
+        recommendations_df = recommendations_df.copy()
+        recommendations_df['Name'] = [f"Author {i+1}" for i in range(len(recommendations_df))]
+        name_col = 'Name'
+    
+    # Ensure Score column exists
+    if 'Score' not in recommendations_df.columns:
+        print("Warning: 'Score' column not found. Using first numeric column.")
+        numeric_cols = recommendations_df.select_dtypes(include=[np.number]).columns
+        if len(numeric_cols) > 0:
+            score_col = numeric_cols[0]
+        else:
+            return None, None, None
+    else:
+        score_col = 'Score'
 
     # Top 20 recommendations bar chart
-    top_20 = recommendations_df.head(20)
-
-    fig1 = px.bar(
-        top_20,
-        x='Score',
-        y='Name',
-        orientation='h',
-        title='Top 20 Recommended Internal Examiners',
-        labels={'Score': 'Similarity Score', 'Name': 'Lecturer Name'},
-        color='Score',
-        color_continuous_scale='viridis'
-    )
-    fig1.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
+    top_20 = recommendations_df.head(20).copy()
+    
+    try:
+        fig1 = px.bar(
+            top_20,
+            x=score_col,
+            y=name_col,
+            orientation='h',
+            title='Top 20 Recommended Internal Examiners',
+            labels={score_col: 'Similarity Score', name_col: 'Lecturer Name'},
+            color=score_col,
+            color_continuous_scale='viridis'
+        )
+        fig1.update_layout(height=600, yaxis={'categoryorder': 'total ascending'})
+    except Exception as e:
+        print(f"Error creating bar chart: {e}")
+        fig1 = None
 
     # Score distribution
-    fig2 = px.histogram(
-        recommendations_df,
-        x='Score',
-        nbins=50,
-        title='Distribution of Similarity Scores',
-        labels={'Score': 'Similarity Score', 'count': 'Number of Lecturers'}
-    )
+    try:
+        fig2 = px.histogram(
+            recommendations_df,
+            x=score_col,
+            nbins=50,
+            title='Distribution of Similarity Scores',
+            labels={score_col: 'Similarity Score', 'count': 'Number of Lecturers'}
+        )
+    except Exception as e:
+        print(f"Error creating histogram: {e}")
+        fig2 = None
 
     # Department-wise analysis if department column exists
     fig3 = None
-    if 'Department' in recommendations_df.columns:
-        dept_stats = recommendations_df.groupby('Department').agg({
-            'Score': ['mean', 'count']
-        }).round(3)
-        dept_stats.columns = ['Average_Score', 'Count']
-        dept_stats = dept_stats.reset_index().sort_values('Average_Score', ascending=False)
+    dept_candidates = ['Department', 'Dept', 'Faculty', 'School']
+    dept_col = None
+    
+    for candidate in dept_candidates:
+        if candidate in recommendations_df.columns:
+            dept_col = candidate
+            break
+    
+    if dept_col:
+        try:
+            dept_stats = recommendations_df.groupby(dept_col).agg({
+                score_col: ['mean', 'count']
+            }).round(3)
+            dept_stats.columns = ['Average_Score', 'Count']
+            dept_stats = dept_stats.reset_index().sort_values('Average_Score', ascending=False)
 
-        fig3 = px.scatter(
-            dept_stats,
-            x='Count',
-            y='Average_Score',
-            size='Count',
-            hover_data=['Department'],
-            title='Department-wise Expertise Analysis',
-            labels={'Count': 'Number of Lecturers', 'Average_Score': 'Average Similarity Score'}
-        )
+            fig3 = px.scatter(
+                dept_stats,
+                x='Count',
+                y='Average_Score',
+                size='Count',
+                hover_data=[dept_col],
+                title='Department-wise Expertise Analysis',
+                labels={'Count': 'Number of Lecturers', 'Average_Score': 'Average Similarity Score'}
+            )
+        except Exception as e:
+            print(f"Error creating department analysis: {e}")
+            fig3 = None
 
     return fig1, fig2, fig3
 
@@ -350,14 +405,29 @@ def main():
         with tab2:
             st.subheader("Similarity Analysis")
 
-            # Create visualizations
-            fig1, fig2, fig3 = create_visualizations(recommendations)
+            try:
+                # Create visualizations
+                fig1, fig2, fig3 = create_visualizations(recommendations)
 
-            st.plotly_chart(fig1, use_container_width=True)
-            st.plotly_chart(fig2, use_container_width=True)
+                # Display charts if they were created successfully
+                if fig1 is not None:
+                    st.plotly_chart(fig1, use_container_width=True)
+                else:
+                    st.warning("Could not create bar chart visualization")
 
-            if fig3:
-                st.plotly_chart(fig3, use_container_width=True)
+                if fig2 is not None:
+                    st.plotly_chart(fig2, use_container_width=True)
+                else:
+                    st.warning("Could not create histogram visualization")
+
+                if fig3 is not None:
+                    st.plotly_chart(fig3, use_container_width=True)
+                else:
+                    st.info("Department analysis not available (no department column found)")
+
+            except Exception as e:
+                st.error(f"Error creating visualizations: {str(e)}")
+                st.write("Available columns in recommendations:", list(recommendations.columns))
 
             # Statistics
             st.subheader("📊 Statistical Summary")
@@ -365,13 +435,37 @@ def main():
 
             with col1:
                 st.write("**Score Distribution:**")
-                st.write(recommendations['Score'].describe())
+                if 'Score' in recommendations.columns:
+                    st.write(recommendations['Score'].describe())
+                else:
+                    # Find the first numeric column
+                    numeric_cols = recommendations.select_dtypes(include=[np.number]).columns
+                    if len(numeric_cols) > 0:
+                        score_col = numeric_cols[0]
+                        st.write(f"**{score_col} Distribution:**")
+                        st.write(recommendations[score_col].describe())
+                    else:
+                        st.write("No numeric columns found for statistics")
 
             with col2:
-                if 'Department' in recommendations.columns:
-                    st.write("**Top Departments:**")
-                    dept_analysis = recommendations.groupby('Department')['Score'].agg(['mean', 'count']).sort_values('mean', ascending=False)
+                # Find department column
+                dept_candidates = ['Department', 'Dept', 'Faculty', 'School']
+                dept_col = None
+                for candidate in dept_candidates:
+                    if candidate in recommendations.columns:
+                        dept_col = candidate
+                        break
+                
+                if dept_col:
+                    st.write(f"**Top {dept_col}s:**")
+                    score_col = 'Score' if 'Score' in recommendations.columns else recommendations.select_dtypes(include=[np.number]).columns[0]
+                    dept_analysis = recommendations.groupby(dept_col)[score_col].agg(['mean', 'count']).sort_values('mean', ascending=False)
                     st.write(dept_analysis.head(10))
+                else:
+                    st.write("**Data Overview:**")
+                    st.write(f"Total recommendations: {len(recommendations)}")
+                    st.write(f"Available columns: {len(recommendations.columns)}")
+                    st.write(f"Columns: {', '.join(recommendations.columns[:5])}{'...' if len(recommendations.columns) > 5 else ''}")
 
         with tab3:
             st.subheader("Complete Results")
