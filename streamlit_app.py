@@ -62,11 +62,11 @@ def load_data():
     """Load the required datasets"""
     try:
         # Load scopus data
-        scopus_df = pd.read_csv('scopus.csv')
+        scopus_df = pd.read_csv('/workspaces/pgschooldemo/scopus.csv')
         scopus_filtered = scopus_df[['Author full names', 'Author(s) ID', 'Abstract', 'Author Keywords', 'Index Keywords']]
 
         # Load FUTA authors data
-        futa_authors = pd.read_csv('futa_authors.csv')
+        futa_authors = pd.read_csv('/workspaces/pgschooldemo/futa_authors.csv')
         futa_authors = futa_authors.dropna(how='all')
 
         return scopus_filtered, futa_authors
