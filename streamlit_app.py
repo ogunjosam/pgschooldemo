@@ -278,25 +278,62 @@ def main():
         # Tabs for different views
         tab1, tab2, tab3 = st.tabs(["📊 Recommendations", "📈 Analysis", "📋 Raw Data"])
 
+        # Replace the section in your tab1 with this improved version:
+
         with tab1:
             st.subheader("Top 20 Recommended Internal Examiners")
 
             # Display top recommendations
             top_20 = recommendations.head(20)
-            print(top_20)
-
+            
+            # Debug: Show what columns are actually available
+            st.write("Available columns:", list(top_20.columns))
+            
             # Create a formatted dataframe for display
             display_df = top_20.copy()
             display_df['Rank'] = range(1, len(display_df) + 1)
             display_df['Similarity Score'] = display_df['Score'].apply(lambda x: f"{x:.3f}")
 
-            # Reorder columns
-            display_columns = ['Rank', 'Name', 'Similarity Score', 'Auth-ID']
+            # Build display_columns based on what's actually available
+            display_columns = ['Rank']
+            
+            # Check for name column (could be 'Name', 'Author', 'Full Name', etc.)
+            name_candidates = ['Name', 'Author', 'Full Name', 'Author Name', 'Authors']
+            name_col = None
+            for candidate in name_candidates:
+                if candidate in display_df.columns:
+                    name_col = candidate
+                    break
+            
+            if name_col:
+                display_columns.append(name_col)
+            else:
+                st.error(f"No name column found. Available columns: {list(display_df.columns)}")
+                st.stop()
+            
+            # Check for department column
             if 'Department' in display_df.columns:
-                display_columns.insert(2, 'Department')
+                display_columns.append('Department')
+            
+            # Add similarity score
+            display_columns.append('Similarity Score')
+            
+            # Check for ID column
+            id_candidates = ['Auth-ID', 'Author(s) ID', 'ID', 'Author ID']
+            id_col = None
+            for candidate in id_candidates:
+                if candidate in display_df.columns:
+                    id_col = candidate
+                    break
+            
+            if id_col:
+                display_columns.append(id_col)
 
+            # Filter display_columns to only include columns that actually exist
+            final_display_columns = [col for col in display_columns if col in display_df.columns]
+            
             st.dataframe(
-                display_df[display_columns],
+                display_df[final_display_columns],
                 use_container_width=True,
                 hide_index=True
             )
