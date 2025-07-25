@@ -283,6 +283,7 @@ def main():
 
             # Display top recommendations
             top_20 = recommendations.head(20)
+            print(top_20)
 
             # Create a formatted dataframe for display
             display_df = top_20.copy()
