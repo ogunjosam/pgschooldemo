@@ -1,1 +1,16 @@
+pandas==2.2.1
+numpy==1.26.4
+
+# Web requests and HTML parsing
+requests==2.31.0
+beautifulsoup4==4.12.3
+
+# Machine learning utilities
+scikit-learn==1.4.0
+
+# Visualization packages
+matplotlib==3.8.3
+seaborn==0.13.2
+plotly==5.20.0
+
 streamlit
