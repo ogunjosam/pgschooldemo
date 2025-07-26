@@ -487,10 +487,7 @@ def main():
 
         1. **Input Processing**: Enter your thesis abstract in the text area on the left sidebar.
 
-        2. **Similarity Calculation**: Using TF-IDF vectorization and cosine similarity, the system compares your abstract with:
-           - Published paper abstracts
-           - Author keywords
-           - Index keywords
+        2. **Similarity Calculation**:
 
         3. **Recommendation Generation**: The system matches similarity scores with FUTA authors and ranks them by relevance.
 
